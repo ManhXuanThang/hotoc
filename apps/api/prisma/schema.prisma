@@ -1,0 +1,370 @@
+// ============================================================
+// CỘNG ĐỒNG GIA PHẢ SỐ — Prisma Schema v1.0
+// Phase 0 · Locked sau khi review với phỏng vấn thực tế
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum FamilyVisibility {
+  PRIVATE        // Chỉ thành viên xem
+  PUBLIC_TREE    // Outsider thấy cây nhưng blur chi tiết
+}
+
+enum FamilyRole {
+  SUPER_ADMIN    // Trưởng họ — tối đa 2/dòng họ
+  BRANCH_ADMIN   // Quản lý nhánh
+  MEMBER         // Thành viên đã xác nhận
+  VIEWER         // Khách xem qua public link
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+// Quan hệ: luôn lưu theo hướng person_id → related_person_id
+// Ví dụ: (A, B, PARENT) = A là cha/mẹ của B
+enum RelationType {
+  PARENT         // Cha hoặc mẹ ruột
+  ADOPTED_PARENT // Cha hoặc mẹ nuôi
+  SPOUSE         // Vợ hoặc chồng (hiện tại)
+  EX_SPOUSE      // Vợ/chồng cũ (để giữ cây đúng với nhiều vợ thế hệ cũ)
+  SIBLING        // Anh chị em ruột (cùng cha mẹ)
+  HALF_SIBLING   // Anh chị em cùng cha khác mẹ / cùng mẹ khác cha
+}
+
+enum ClaimStatus {
+  PENDING        // Đang chờ Admin duyệt
+  APPROVED       // Đã được duyệt
+  REJECTED       // Bị từ chối
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReminderType {
+  DEATH_ANNIVERSARY  // Ngày giỗ
+  BIRTHDAY           // Sinh nhật (phase 2)
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+}
+
+// ============================================================
+// FAMILY — Đơn vị tổ chức trung tâm
+// ============================================================
+
+model Family {
+  id               String           @id @default(cuid())
+  name             String           // Tên dòng họ, ví dụ "Họ Nguyễn - Hà Tĩnh"
+  originProvince   String?          // Tỉnh quê gốc
+  originDistrict   String?          // Huyện quê gốc
+  originCommune    String?          // Xã quê gốc
+  description      String?          // Mô tả ngắn
+  avatarUrl        String?          // Ảnh đại diện (nhà thờ, đình làng...)
+  visibility       FamilyVisibility @default(PRIVATE)
+  inviteCode       String?          @unique // Code mời hiện tại đang active
+  inviteExpiresAt  DateTime?        // Hết hạn invite code
+  createdById      String           // UserAccount tạo họ
+
+  // Relations
+  createdBy        UserAccount      @relation("FamilyCreatedBy", fields: [createdById], references: [id])
+  persons          Person[]
+  familyMembers    FamilyMember[]
+  changeRequests   ChangeRequest[]
+  auditLogs        AuditLog[]
+  reminders        Reminder[]
+  photos           Photo[]
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?        // Soft delete
+
+  @@index([createdById])
+}
+
+// ============================================================
+// PERSON — Thành viên trong cây gia phả (có thể đã mất)
+// ============================================================
+
+model Person {
+  id               String    @id @default(cuid())
+  familyId         String
+  fullName         String
+  nickname         String?   // Tên thường gọi
+  gender           Gender    @default(UNKNOWN)
+  birthDate        DateTime?
+  birthDateApprox  Boolean   @default(false) // Ngày sinh ước chừng (không chắc chắn)
+  deathDate        DateTime?
+  deathDateApprox  Boolean   @default(false)
+  isAlive          Boolean   @default(true)
+  hometown         String?   // Quê quán
+  currentLocation  String?   // Nơi ở hiện tại
+  occupation       String?   // Nghề nghiệp
+  bio              String?   // Câu chuyện cuộc đời (plain text, phase 2: rich text)
+  generationNum    Int?      // Đời số — tính tự động, lưu cache để query nhanh
+  isVerified       Boolean   @default(false) // Thông tin đã được xác minh
+  isRootAncestor   Boolean   @default(false) // Tổ tiên gốc của dòng họ
+
+  // Thông tin nhạy cảm — chỉ MEMBER+ mới xem
+  phone            String?
+  address          String?
+
+  // Audit
+  createdById      String?
+  approvedById     String?   // Admin đã duyệt person này vào cây
+
+  // Relations
+  family           Family    @relation(fields: [familyId], references: [id])
+  createdBy        UserAccount? @relation("PersonCreatedBy", fields: [createdById], references: [id])
+  approvedBy       UserAccount? @relation("PersonApprovedBy", fields: [approvedById], references: [id])
+
+  // Relationships trong cây
+  relationsAsSource   Relationship[] @relation("RelationSource")
+  relationsAsTarget   Relationship[] @relation("RelationTarget")
+
+  // Claims — tài khoản nào đang claim person này
+  claims           PersonClaim[]
+
+  // Photos & reminders
+  photos           Photo[]
+  reminders        Reminder[]
+  changeRequests   ChangeRequest[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime? // Soft delete
+
+  @@index([familyId])
+  @@index([familyId, generationNum])
+  @@index([deathDate]) // Để tính ngày giỗ nhanh
+}
+
+// ============================================================
+// RELATIONSHIP — Quan hệ giữa 2 Person
+// Luôn lưu cả 2 chiều để query dễ:
+// Ví dụ: A là cha của B → lưu (A, B, PARENT) VÀ (B, A, PARENT với reverse)
+// ============================================================
+
+model Relationship {
+  id               String       @id @default(cuid())
+  personId         String       // Person chủ thể
+  relatedPersonId  String       // Person liên quan
+  relationType     RelationType
+  note             String?      // Ghi chú thêm nếu cần
+
+  person           Person       @relation("RelationSource", fields: [personId], references: [id])
+  relatedPerson    Person       @relation("RelationTarget", fields: [relatedPersonId], references: [id])
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Không cho phép 2 người có cùng loại quan hệ trùng nhau
+  @@unique([personId, relatedPersonId, relationType])
+  @@index([personId])
+  @@index([relatedPersonId])
+}
+
+// ============================================================
+// USER ACCOUNT — Tài khoản đăng nhập
+// ============================================================
+
+model UserAccount {
+  id               String    @id @default(cuid())
+  phone            String    @unique // Số điện thoại — định danh chính
+  email            String?   @unique
+  displayName      String?
+  avatarUrl        String?
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+
+  // Auth
+  refreshToken     String?   // Hashed refresh token
+
+  // Relations
+  familiesCreated  Family[]  @relation("FamilyCreatedBy")
+  personsCreated   Person[]  @relation("PersonCreatedBy")
+  personsApproved  Person[]  @relation("PersonApprovedBy")
+  claims           PersonClaim[]
+  familyMembers    FamilyMember[]
+  changeRequests   ChangeRequest[] @relation("ChangeRequestedBy")
+  reviewedRequests ChangeRequest[] @relation("ChangeReviewedBy")
+  auditLogs        AuditLog[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([phone])
+}
+
+// ============================================================
+// FAMILY MEMBER — Role của UserAccount trong 1 dòng họ
+// ============================================================
+
+model FamilyMember {
+  id               String     @id @default(cuid())
+  familyId         String
+  userId           String
+  role             FamilyRole @default(MEMBER)
+  branchPersonId   String?    // Nếu là BRANCH_ADMIN, họ quản lý nhánh của Person nào
+
+  family           Family     @relation(fields: [familyId], references: [id])
+  user             UserAccount @relation(fields: [userId], references: [id])
+
+  joinedAt         DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // 1 user chỉ có 1 role trong 1 dòng họ
+  @@unique([familyId, userId])
+  @@index([familyId])
+  @@index([userId])
+}
+
+// ============================================================
+// PERSON CLAIM — UserAccount xác nhận mình là Person nào trong cây
+// ============================================================
+
+model PersonClaim {
+  id               String      @id @default(cuid())
+  userId           String
+  personId         String
+  familyId         String      // Redundant nhưng giúp query nhanh
+  status           ClaimStatus @default(PENDING)
+  rejectionReason  String?
+
+  user             UserAccount @relation(fields: [userId], references: [id])
+  person           Person      @relation(fields: [personId], references: [id])
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // 1 user chỉ claim 1 person trong 1 dòng họ
+  @@unique([userId, familyId])
+  @@index([personId])
+  @@index([status])
+}
+
+// ============================================================
+// CHANGE REQUEST — Workflow duyệt thay đổi
+// ============================================================
+
+model ChangeRequest {
+  id               String              @id @default(cuid())
+  familyId         String
+  personId         String
+  requestedById    String
+  reviewedById     String?
+  status           ChangeRequestStatus @default(PENDING)
+  fieldChanges     Json                // { fieldName: { old: "...", new: "..." } }
+  changeType       String              // "UPDATE_PERSON" | "ADD_PERSON" | "DELETE_PERSON" | "ADD_RELATIONSHIP"
+  note             String?             // Ghi chú từ người đề xuất
+  reviewNote       String?             // Lý do approve/reject từ admin
+
+  family           Family              @relation(fields: [familyId], references: [id])
+  person           Person              @relation(fields: [personId], references: [id])
+  requestedBy      UserAccount         @relation("ChangeRequestedBy", fields: [requestedById], references: [id])
+  reviewedBy       UserAccount?        @relation("ChangeReviewedBy", fields: [reviewedById], references: [id])
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([familyId, status])
+  @@index([personId])
+}
+
+// ============================================================
+// AUDIT LOG — Lịch sử mọi thay đổi
+// ============================================================
+
+model AuditLog {
+  id               String      @id @default(cuid())
+  familyId         String
+  entityType       String      // "Person" | "Relationship" | "Family" | "FamilyMember"
+  entityId         String
+  action           AuditAction
+  oldValue         Json?       // Giá trị trước khi thay đổi
+  newValue         Json?       // Giá trị sau khi thay đổi
+  performedById    String
+  ipAddress        String?
+  userAgent        String?
+
+  family           Family      @relation(fields: [familyId], references: [id])
+  performedBy      UserAccount @relation(fields: [performedById], references: [id])
+
+  createdAt        DateTime    @default(now())
+
+  @@index([familyId, entityType, entityId])
+  @@index([performedById])
+  @@index([createdAt])
+}
+
+// ============================================================
+// REMINDER — Nhắc nhở ngày giỗ, sinh nhật
+// ============================================================
+
+model Reminder {
+  id               String       @id @default(cuid())
+  familyId         String
+  personId         String       // Person được nhắc (người mất / người sinh)
+  type             ReminderType
+  reminderDate     DateTime     // Ngày cần gửi nhắc (năm nay)
+  lunarDate        String?      // Ngày âm lịch nếu có (format: "DD/MM âm lịch")
+  isSent           Boolean      @default(false)
+  sentAt           DateTime?
+
+  family           Family       @relation(fields: [familyId], references: [id])
+  person           Person       @relation(fields: [personId], references: [id])
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([familyId, reminderDate])
+  @@index([isSent, reminderDate]) // Để cronjob tìm reminder chưa gửi nhanh
+}
+
+// ============================================================
+// PHOTO — Ảnh gắn với Person hoặc Family
+// ============================================================
+
+model Photo {
+  id               String   @id @default(cuid())
+  familyId         String
+  personId         String?  // Null nếu là ảnh chung của cả họ
+  url              String   // S3/R2 URL
+  thumbnailUrl     String?
+  caption          String?
+  takenAt          DateTime? // Ngày chụp (nếu biết)
+  uploadedById     String
+  isApproved       Boolean  @default(true) // Admin có thể ẩn ảnh không phù hợp
+  sortOrder        Int      @default(0)
+
+  family           Family   @relation(fields: [familyId], references: [id])
+  person           Person?  @relation(fields: [personId], references: [id])
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  @@index([familyId])
+  @@index([personId])
+}

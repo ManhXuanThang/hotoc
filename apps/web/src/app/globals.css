@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Be+Vietnam+Pro:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sand: #F5F0E8;
+  --sand2: #EDE7D9;
+  --sand3: #E4DDD0;
+  --ink: #1C1A17;
+  --ink2: #4A4640;
+  --ink3: #8A847C;
+  --ink4: #B4AFA8;
+  --teal: #0F6E56;
+  --teal2: #E1F5EE;
+  --gold: #C8960C;
+  --gold2: #FBF0D0;
+  --red: #A32D2D;
+  --red2: #FCEBEB;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--sand);
+  color: var(--ink);
+  font-family: 'Be Vietnam Pro', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: 'Lora', serif; }
