@@ -67,6 +67,29 @@ export class FamilyService {
     });
   }
 
+  async getInvitePreview(code: string) {
+    const family = await this.prisma.family.findFirst({
+      where: {
+        inviteCode: code.toUpperCase(),
+        deletedAt: null,
+        OR: [{ inviteExpiresAt: null }, { inviteExpiresAt: { gt: new Date() } }],
+      },
+      select: {
+        id: true,
+        name: true,
+        originProvince: true,
+        originDistrict: true,
+        originCommune: true,
+        description: true,
+        inviteCode: true,
+        inviteExpiresAt: true,
+        _count: { select: { persons: { where: { deletedAt: null } } } },
+      },
+    });
+    if (!family) throw new NotFoundException('Link moi khong hop le hoac da het han');
+    return family;
+  }
+
   async joinByInviteCode(code: string, userId: string) {
     const family = await this.prisma.family.findFirst({
       where: { inviteCode: code.toUpperCase(), deletedAt: null,

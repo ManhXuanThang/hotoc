@@ -47,6 +47,16 @@ export const verifyOtp = (phone: string, code: string) => api.post('/auth/verify
 export const getMyFamilies = () => api.get('/families/me')
 export const getFamily = (id: string) => api.get(`/families/${id}`)
 export const createFamily = (data: any) => api.post('/families', data)
+export const regenerateInvite = (familyId: string, days = 30) =>
+  api.post(`/families/${familyId}/invite/regenerate?days=${days}`)
+export const getInvitePreview = (code: string) => axios.get(`${API_URL}/api/v1/families/invite/${code}`)
+export const joinFamilyByCode = (code: string) => api.post(`/families/join/${code}`)
+export const getChangeRequests = (familyId: string) => api.get(`/families/${familyId}/change-requests`)
+export const reviewChangeRequest = (id: string, action: 'APPROVE' | 'REJECT', note?: string) =>
+  api.post(`/change-requests/${id}/review`, { action, note })
+export const getReminders = (familyId: string, days = 60) => api.get(`/families/${familyId}/reminders?days=${days}`)
+export const syncReminders = (familyId: string) => api.post(`/families/${familyId}/reminders/sync`)
+export const markReminderSent = (id: string) => api.post(`/reminders/${id}/sent`)
 
 // Tree
 export const getFamilyTree = (familyId: string) => api.get(`/families/${familyId}/tree`)

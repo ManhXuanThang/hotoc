@@ -11,35 +11,29 @@ export class PersonService {
     const isAdmin = ['SUPER_ADMIN', 'BRANCH_ADMIN'].includes(member.role);
 
     if (!isAdmin) {
+      const pendingPerson = await this.prisma.person.create({
+        data: this.buildPersonData(userId, dto, {
+          approvedById: null,
+          deletedAt: new Date(),
+          isVerified: false,
+        }),
+      });
       return this.prisma.changeRequest.create({
-        data: { familyId: dto.familyId, personId: 'PENDING_NEW',
-          requestedById: userId, changeType: 'ADD_PERSON', fieldChanges: dto as any },
+        data: {
+          familyId: dto.familyId,
+          personId: pendingPerson.id,
+          requestedById: userId,
+          changeType: 'ADD_PERSON',
+          fieldChanges: dto as any,
+        },
       });
     }
 
     const person = await this.prisma.person.create({
-      data: {
-        familyId: dto.familyId, fullName: dto.fullName,
-        nickname: dto.nickname, gender: dto.gender ?? 'UNKNOWN',
-        birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
-        deathDate: dto.deathDate ? new Date(dto.deathDate) : null,
-        isAlive: dto.isAlive ?? !dto.deathDate,
-        hometown: dto.hometown, currentLocation: dto.currentLocation,
-        occupation: dto.occupation, bio: dto.bio,
-        isRootAncestor: dto.isRootAncestor ?? false,
-        createdById: userId, approvedById: userId,
-      },
+      data: this.buildPersonData(userId, dto, { approvedById: userId, isVerified: true }),
     });
 
-    if (dto.relatedPersonId && dto.relationToRelated) {
-      await this.prisma.relationship.createMany({
-        data: [
-          { personId: person.id, relatedPersonId: dto.relatedPersonId, relationType: dto.relationToRelated },
-          { personId: dto.relatedPersonId, relatedPersonId: person.id, relationType: dto.relationToRelated },
-        ],
-        skipDuplicates: true,
-      });
-    }
+    await this.createRelationship(person.id, dto.relatedPersonId, dto.relationToRelated);
 
     if (person.deathDate) {
       const d = new Date(person.deathDate);
@@ -123,5 +117,35 @@ export class PersonService {
     });
     if (!m) throw new ForbiddenException('Ban chua la thanh vien');
     return m;
+  }
+
+  private buildPersonData(userId: string, dto: CreatePersonDto, overrides: Record<string, any>): any {
+    return {
+      familyId: dto.familyId,
+      fullName: dto.fullName,
+      nickname: dto.nickname,
+      gender: dto.gender ?? 'UNKNOWN',
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+      deathDate: dto.deathDate ? new Date(dto.deathDate) : null,
+      isAlive: dto.isAlive ?? !dto.deathDate,
+      hometown: dto.hometown,
+      currentLocation: dto.currentLocation,
+      occupation: dto.occupation,
+      bio: dto.bio,
+      isRootAncestor: dto.isRootAncestor ?? false,
+      createdById: userId,
+      ...overrides,
+    };
+  }
+
+  private async createRelationship(personId: string, relatedPersonId?: string, relationType?: RelationType) {
+    if (!relatedPersonId || !relationType) return;
+    await this.prisma.relationship.createMany({
+      data: [
+        { personId, relatedPersonId, relationType },
+        { personId: relatedPersonId, relatedPersonId: personId, relationType },
+      ],
+      skipDuplicates: true,
+    });
   }
 }

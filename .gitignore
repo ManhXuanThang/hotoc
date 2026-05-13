@@ -3,3 +3,7 @@ node_modules/
 dist/ 
 .env 
 apps/api/.env 
+.turbo/
+apps/**/.turbo/
+*.log
+*.tsbuildinfo

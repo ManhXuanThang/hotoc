@@ -9,7 +9,10 @@ export class ChangeRequestService {
     await this.checkAdmin(familyId, userId);
     return this.prisma.changeRequest.findMany({
       where: { familyId, status: 'PENDING' },
-      include: { requestedBy: { select: { id: true, displayName: true, phone: true } } },
+      include: {
+        person: { select: { id: true, fullName: true, gender: true, birthDate: true, deathDate: true, currentLocation: true, deletedAt: true } },
+        requestedBy: { select: { id: true, displayName: true, phone: true } },
+      },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -20,16 +23,42 @@ export class ChangeRequestService {
     if (req.status !== 'PENDING') throw new BadRequestException('Yeu cau da duoc xu ly');
     await this.checkAdmin(req.familyId, userId);
 
-    if (action === 'APPROVE' && req.changeType === 'UPDATE_PERSON') {
+    if (action === 'APPROVE' && req.changeType === 'ADD_PERSON') {
       const changes = req.fieldChanges as any;
       await this.prisma.person.update({
         where: { id: req.personId },
         data: {
-          ...(changes.fullName && { fullName: changes.fullName }),
-          ...(changes.currentLocation && { currentLocation: changes.currentLocation }),
-          ...(changes.occupation && { occupation: changes.occupation }),
-          ...(changes.bio && { bio: changes.bio }),
+          ...this.personDataFromChanges(changes),
+          deletedAt: null,
+          approvedById: userId,
+          isVerified: true,
         },
+      });
+      if (changes.relatedPersonId && changes.relationToRelated) {
+        await this.prisma.relationship.createMany({
+          data: [
+            { personId: req.personId, relatedPersonId: changes.relatedPersonId, relationType: changes.relationToRelated },
+            { personId: changes.relatedPersonId, relatedPersonId: req.personId, relationType: changes.relationToRelated },
+          ],
+          skipDuplicates: true,
+        });
+      }
+      if (changes.deathDate) {
+        const d = new Date(changes.deathDate);
+        const year = new Date().getFullYear();
+        const reminderDate = new Date(year, d.getMonth(), d.getDate());
+        if (reminderDate < new Date()) reminderDate.setFullYear(year + 1);
+        await this.prisma.reminder.create({
+          data: { familyId: req.familyId, personId: req.personId, type: 'DEATH_ANNIVERSARY', reminderDate },
+        });
+      }
+    }
+
+    if (action === 'APPROVE' && req.changeType === 'UPDATE_PERSON') {
+      const changes = req.fieldChanges as any;
+      await this.prisma.person.update({
+        where: { id: req.personId },
+        data: this.personDataFromChanges(changes),
       });
     }
 
@@ -46,5 +75,21 @@ export class ChangeRequestService {
     if (!m || !['SUPER_ADMIN', 'BRANCH_ADMIN'].includes(m.role)) {
       throw new ForbiddenException('Chi Admin moi co quyen duyet');
     }
+  }
+
+  private personDataFromChanges(changes: any) {
+    return {
+      ...(changes.fullName && { fullName: changes.fullName }),
+      ...(changes.nickname && { nickname: changes.nickname }),
+      ...(changes.gender && { gender: changes.gender }),
+      ...(changes.birthDate && { birthDate: new Date(changes.birthDate) }),
+      ...(changes.deathDate && { deathDate: new Date(changes.deathDate) }),
+      ...(typeof changes.isAlive === 'boolean' && { isAlive: changes.isAlive }),
+      ...(changes.hometown && { hometown: changes.hometown }),
+      ...(changes.currentLocation && { currentLocation: changes.currentLocation }),
+      ...(changes.occupation && { occupation: changes.occupation }),
+      ...(changes.bio && { bio: changes.bio }),
+      ...(typeof changes.isRootAncestor === 'boolean' && { isRootAncestor: changes.isRootAncestor }),
+    };
   }
 }

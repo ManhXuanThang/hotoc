@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { FamilyModule } from './family/family.module';
 import { PersonModule } from './person/person.module';
+import { ReminderModule } from './reminder/reminder.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     AuthModule,
     FamilyModule,
     PersonModule,
+    ReminderModule,
   ],
 })
 export class AppModule {}
