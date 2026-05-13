@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, IsDateString, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsDateString, MaxLength, IsNotEmpty } from 'class-validator';
 
 export enum Gender { MALE = 'MALE', FEMALE = 'FEMALE', UNKNOWN = 'UNKNOWN' }
 export enum RelationType {
@@ -9,7 +9,7 @@ export enum RelationType {
 
 export class CreatePersonDto {
   @IsString() familyId: string;
-  @IsString() @MaxLength(100) fullName: string;
+  @IsString() @IsNotEmpty({ message: 'Họ tên không được để trống' }) @MaxLength(100) fullName: string;
   @IsOptional() @IsString() nickname?: string;
   @IsOptional() @IsEnum(Gender) gender?: Gender;
   @IsOptional() @IsDateString() birthDate?: string;

@@ -78,7 +78,6 @@ export default function JoinByCodePage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 18 }}>
               <Info label="Thành viên" value={`${family._count?.persons ?? 0} người`} />
               <Info label="Quê gốc" value={[family.originCommune, family.originDistrict, family.originProvince].filter(Boolean).join(', ') || 'Chưa cập nhật'} />
-              <Info label="Hết hạn" value={family.inviteExpiresAt ? new Date(family.inviteExpiresAt).toLocaleDateString('vi-VN') : 'Không hết hạn'} />
             </div>
             {error && <div style={errorStyle}>{error}</div>}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

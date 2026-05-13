@@ -26,6 +26,18 @@ const REL: Record<string, string> = {
   ADOPTED_PARENT: 'Con nuôi', EX_SPOUSE: 'Vợ/Chồng cũ', HALF_SIBLING: 'Cùng cha khác mẹ'
 }
 
+function relationLabel(relationType: string, source: Person, target: Person) {
+  if (relationType === 'PARENT') {
+    if ((target.generationNum ?? 0) < (source.generationNum ?? 0)) return 'PARENT'
+    return 'Con'
+  }
+  if (relationType === 'ADOPTED_PARENT') {
+    if ((target.generationNum ?? 0) < (source.generationNum ?? 0)) return 'Cha/mẹ nuôi'
+    return 'Con nuôi'
+  }
+  return REL[relationType] ?? relationType
+}
+
 function PersonCard({ p, selected, onClick }: { p: Person; selected: boolean; onClick: () => void }) {
   const gClass = p.gender === 'MALE' ? 'male' : p.gender === 'FEMALE' ? 'female' : 'male'
   const avClass = p.isCurrentUser ? 'you' : gClass
@@ -101,7 +113,7 @@ function ProfileContent({ p, persons, onSelect }: { p: Person; persons: Person[]
                 if (!rp) return null
                 return (
                   <div key={rp.id} className="rel-chip" onClick={() => onSelect(rp)}>
-                    <span className="rel-chip-label">{REL[r.relationType] ?? r.relationType} </span>
+                    <span className="rel-chip-label">{relationLabel(r.relationType, p, rp)} </span>
                     <span className="rel-chip-name">{rp.fullName.split(' ').slice(-2).join(' ')}</span>
                   </div>
                 )

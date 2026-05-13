@@ -81,8 +81,7 @@ export class FamilyService {
         originDistrict: true,
         originCommune: true,
         description: true,
-        inviteCode: true,
-        inviteExpiresAt: true,
+        avatarUrl: true,
         _count: { select: { persons: { where: { deletedAt: null } } } },
       },
     });
