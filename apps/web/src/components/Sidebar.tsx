@@ -24,6 +24,10 @@ export default function Sidebar({ familyId, familyName, memberCount }: {
         <span>Ngày giỗ</span>
         <span className="sidebar-badge">2</span>
       </Link>
+      <Link href={`/family/${familyId}/about`} className={is('/about')}>
+        <i className="ti ti-info-circle" aria-hidden="true" />
+        <span>Về dòng họ</span>
+      </Link>
       <Link href={`/family/${familyId}/photos`} className={is('/photos')}>
         <i className="ti ti-photo" aria-hidden="true" />
         <span>Ảnh kỷ niệm</span>

@@ -104,6 +104,9 @@ function ProfileContent({ p, persons, onSelect }: { p: Person; persons: Person[]
             </div>
           )}
         </div>
+        <button className="btn btn-outline" style={{ width: '100%', marginBottom: 14 }} onClick={() => downloadCard(p)}>
+          Tạo thiệp
+        </button>
         {p.relationsAsSource.length > 0 && (
           <>
             <div className="rels-title">Quan hệ trong cây</div>
@@ -124,6 +127,39 @@ function ProfileContent({ p, persons, onSelect }: { p: Person; persons: Person[]
       </div>
     </>
   )
+}
+
+function downloadCard(p: Person) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1080
+  canvas.height = 1080
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const gradient = ctx.createLinearGradient(0, 0, 1080, 1080)
+  gradient.addColorStop(0, '#F8F7F4')
+  gradient.addColorStop(1, '#E1F5EE')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 1080, 1080)
+  ctx.fillStyle = '#0F6E56'
+  ctx.fillRect(0, 0, 1080, 18)
+  ctx.fillStyle = '#1C1A17'
+  ctx.font = '700 78px serif'
+  ctx.fillText(p.fullName, 90, 300)
+  ctx.font = '500 42px sans-serif'
+  ctx.fillStyle = '#4A4640'
+  ctx.fillText(`Đời thứ ${p.generationNum ?? '?'}`, 90, 380)
+  if (p.currentLocation) ctx.fillText(`Quê/Nơi ở: ${p.currentLocation}`, 90, 450)
+  ctx.fillStyle = '#0F6E56'
+  ctx.font = '700 40px sans-serif'
+  ctx.fillText('Họ Tộc', 90, 760)
+  ctx.fillStyle = '#8A847C'
+  ctx.font = '500 30px sans-serif'
+  ctx.fillText('Kết nối nguồn cội dòng tộc', 90, 810)
+  ctx.fillText('hotoc.net', 820, 1010)
+  const link = document.createElement('a')
+  link.download = `${p.fullName.replace(/\s+/g, '-')}-hotoc.png`
+  link.href = canvas.toDataURL('image/png')
+  link.click()
 }
 
 export default function TreePage() {
@@ -218,7 +254,14 @@ export default function TreePage() {
           <div className="tree-layout">
             {/* Tree canvas */}
             <div className="tree-canvas">
-              {gens.map((gen, gi) => (
+              {persons.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon">+</div>
+                  <h2 style={{ fontSize: 20, marginBottom: 8 }}>Cây chưa có thành viên nào</h2>
+                  <p style={{ color: 'var(--ink3)', marginBottom: 16 }}>Thêm người đầu tiên để bắt đầu dựng cây gia phả.</p>
+                  <button className="btn btn-primary" onClick={() => router.push(`/family/${familyId}/add`)}>Thêm người đầu tiên</button>
+                </div>
+              ) : gens.map((gen, gi) => (
                 <div key={gen}>
                   {gi > 0 && (
                     <div className="gen-connector">

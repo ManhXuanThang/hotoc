@@ -42,11 +42,18 @@ api.interceptors.response.use(
 // Auth
 export const sendOtp = (phone: string) => api.post('/auth/send-otp', { phone })
 export const verifyOtp = (phone: string, code: string) => api.post('/auth/verify-otp', { phone, code })
+export const getMe = () => api.get('/auth/me')
+export const updateMe = (data: any) => api.patch('/auth/me', data)
+export const logoutApi = () => api.post('/auth/logout')
 
 // Family
 export const getMyFamilies = () => api.get('/families/me')
 export const getFamily = (id: string) => api.get(`/families/${id}`)
 export const createFamily = (data: any) => api.post('/families', data)
+export const getFamilyAbout = (familyId: string) => api.get(`/families/${familyId}/about`)
+export const getFamilyActivity = (familyId: string) => api.get(`/families/${familyId}/activity`)
+export const exportFamily = (familyId: string, format: 'json' | 'csv' = 'json') =>
+  api.get(`/families/${familyId}/export?format=${format}`)
 export const regenerateInvite = (familyId: string, days = 30) =>
   api.post(`/families/${familyId}/invite/regenerate?days=${days}`)
 export const getInvitePreview = (code: string) => axios.get(`${API_URL}/api/v1/families/invite/${code}`)

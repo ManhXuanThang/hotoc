@@ -41,7 +41,9 @@ export default function Topbar({ familyId }: { familyId?: string }) {
             ✨ Thêm thành viên
           </button>
         )}
-        <div className="topbar-avatar" title="Tài khoản">{initials}</div>
+        <Link href="/profile" className="topbar-avatar" title="Hồ sơ của tôi" style={{ textDecoration: 'none' }}>
+          {initials}
+        </Link>
       </div>
     </div>
   )

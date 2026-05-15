@@ -1013,6 +1013,62 @@ select:disabled {
 .mobile-nav-btn.active i,
 .mobile-nav-btn.active span { color: var(--primary); }
 
+.toast-stack {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 500;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 28px));
+}
+
+@media (max-width: 640px) {
+  .toast-stack {
+    left: 14px;
+    right: 14px;
+    width: auto;
+  }
+}
+
+.toast {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  box-shadow: 0 10px 30px rgba(28, 26, 23, 0.12);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  animation: slideInDown 0.2s ease;
+}
+
+.toast-success { background: var(--primary2); border-color: rgba(15, 110, 86, 0.24); color: var(--primary); }
+.toast-warning { background: var(--gold2); border-color: rgba(200, 150, 12, 0.24); color: #92400E; }
+.toast-error { background: var(--red2); border-color: rgba(153, 27, 27, 0.2); color: var(--red); }
+
+.empty-state {
+  background: var(--card);
+  border: 1px dashed var(--border2);
+  border-radius: 14px;
+  padding: 28px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  background: var(--primary2);
+  color: var(--primary);
+  font-size: 24px;
+}
+
 /* ── DASHBOARD ── */
 .dash-header {
   background: var(--topbar);

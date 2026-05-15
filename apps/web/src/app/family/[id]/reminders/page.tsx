@@ -78,9 +78,11 @@ export default function RemindersPage() {
             {loading ? (
               <div style={cardStyle}>Đang tải...</div>
             ) : reminders.length === 0 ? (
-              <div style={cardStyle}>
-                <h2 style={{ fontSize: 18, marginBottom: 6 }}>Chưa có lịch nhắc</h2>
-                <p style={{ color: 'var(--ink3)', fontSize: 14 }}>Bấm đồng bộ để tạo nhắc giỗ từ các thành viên đã có ngày mất.</p>
+              <div className="empty-state">
+                <div className="empty-state-icon">i</div>
+                <h2 style={{ fontSize: 18, marginBottom: 6 }}>Chưa có ngày giỗ nào</h2>
+                <p style={{ color: 'var(--ink3)', fontSize: 14, marginBottom: 14 }}>Thêm ngày mất cho thành viên để tự động tạo nhắc nhở.</p>
+                <button className="btn btn-primary" onClick={sync} disabled={syncing}>{syncing ? 'Đang xử lý...' : 'Đồng bộ từ cây'}</button>
               </div>
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>

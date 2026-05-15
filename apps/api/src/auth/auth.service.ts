@@ -84,4 +84,62 @@ export class AuthService {
     });
     return { message: 'Đăng xuất thành công' };
   }
+
+  async me(userId: string) {
+    return this.prisma.userAccount.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        phone: true,
+        displayName: true,
+        avatarUrl: true,
+        createdAt: true,
+        familyMembers: {
+          select: {
+            role: true,
+            joinedAt: true,
+            family: {
+              select: {
+                id: true,
+                name: true,
+                originProvince: true,
+                originDistrict: true,
+                _count: { select: { persons: { where: { deletedAt: null } } } },
+              },
+            },
+          },
+          orderBy: { joinedAt: 'desc' },
+        },
+        claims: {
+          where: { status: 'APPROVED' },
+          select: {
+            familyId: true,
+            person: {
+              select: {
+                id: true,
+                familyId: true,
+                fullName: true,
+                birthDate: true,
+                currentLocation: true,
+                occupation: true,
+                bio: true,
+                generationNum: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async updateMe(userId: string, dto: { displayName?: string; avatarUrl?: string }) {
+    return this.prisma.userAccount.update({
+      where: { id: userId },
+      data: {
+        ...(dto.displayName !== undefined && { displayName: dto.displayName.trim() || null }),
+        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl.trim() || null }),
+      },
+      select: { id: true, phone: true, displayName: true, avatarUrl: true },
+    });
+  }
 }

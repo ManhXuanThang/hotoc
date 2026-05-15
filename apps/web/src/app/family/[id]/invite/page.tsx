@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Topbar from '@/components/Topbar'
 import Sidebar from '@/components/Sidebar'
 import { getFamily, getFamilyTree, regenerateInvite } from '@/lib/api'
+import { useToast } from '@/components/Toast'
 
 type InviteState = {
   inviteCode?: string | null
@@ -13,6 +14,7 @@ type InviteState = {
 
 export default function InvitePage() {
   const router = useRouter()
+  const toast = useToast()
   const params = useParams<{ id: string }>()
   const familyId = params.id
   const [family, setFamily] = useState<any>(null)
@@ -58,8 +60,10 @@ export default function InvitePage() {
     try {
       const res = await regenerateInvite(familyId, days)
       setInvite(res.data)
+      toast('Đã lưu')
     } catch (e: any) {
       setError(e.response?.data?.message || 'Không thể tạo link mời')
+      toast('Có lỗi xảy ra, thử lại', 'error')
     } finally {
       setSaving(false)
     }
@@ -71,6 +75,7 @@ export default function InvitePage() {
       await navigator.clipboard.writeText(inviteUrl)
     }
     setCopied(true)
+    toast('Đã copy link')
     setTimeout(() => setCopied(false), 1800)
   }
 

@@ -3,9 +3,11 @@
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createFamily } from '@/lib/api'
+import { useToast } from '@/components/Toast'
 
 export default function CreateFamilyPage() {
   const router = useRouter()
+  const toast = useToast()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -32,9 +34,11 @@ export default function CreateFamilyPage() {
     try {
       const payload = Object.fromEntries(Object.entries(form).filter(([, value]) => value !== ''))
       const res = await createFamily(payload)
+      toast('Đã lưu')
       router.push(`/family/${res.data.id}/tree`)
     } catch (e: any) {
       setError(e.response?.data?.message || 'Không thể tạo dòng họ')
+      toast('Có lỗi xảy ra, thử lại', 'error')
     } finally {
       setSaving(false)
     }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Topbar from '@/components/Topbar'
 import Sidebar from '@/components/Sidebar'
 import { createPerson, getFamily, getFamilyTree } from '@/lib/api'
+import { useToast } from '@/components/Toast'
 
 type Person = {
   id: string
@@ -29,6 +30,7 @@ function clean(data: Record<string, any>) {
 
 export default function AddPersonPage() {
   const router = useRouter()
+  const toast = useToast()
   const params = useParams<{ id: string }>()
   const familyId = params.id
   const [family, setFamily] = useState<any>(null)
@@ -116,11 +118,14 @@ export default function AddPersonPage() {
       const res = await createPerson(payload)
       if (res.data?.changeType) {
         setMessage('Đã gửi yêu cầu thêm thành viên. Quản trị viên sẽ duyệt trước khi hiển thị trên cây.')
+        toast('Đã gửi yêu cầu, chờ admin duyệt', 'warning')
       } else {
+        toast(`Đã thêm ${form.fullName.trim()} vào cây`)
         router.push(`/family/${familyId}/tree`)
       }
     } catch (e: any) {
       setError(e.response?.data?.message || 'Không thể thêm thành viên')
+      toast('Có lỗi xảy ra, thử lại', 'error')
     } finally {
       setSaving(false)
     }

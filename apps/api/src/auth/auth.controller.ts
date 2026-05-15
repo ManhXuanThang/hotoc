@@ -1,8 +1,8 @@
-import { Controller, Post, Body, UseGuards, Req, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, Get, Patch } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { IsPhoneNumber, IsString, Length } from 'class-validator';
+import { IsOptional, IsPhoneNumber, IsString, Length, MaxLength } from 'class-validator';
 
 class SendOtpDto {
   @IsPhoneNumber('VN')
@@ -21,6 +21,17 @@ class VerifyOtpDto {
 class RefreshDto {
   @IsString()
   refreshToken: string;
+}
+
+class UpdateMeDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  displayName?: string;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }
 
 @Controller('auth')
@@ -51,5 +62,17 @@ export class AuthController {
   @HttpCode(200)
   logout(@Req() req: any) {
     return this.auth.logout(req.user.id);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  me(@Req() req: any) {
+    return this.auth.me(req.user.id);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  updateMe(@Req() req: any, @Body() dto: UpdateMeDto) {
+    return this.auth.updateMe(req.user.id, dto);
   }
 }

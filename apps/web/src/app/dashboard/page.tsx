@@ -3,12 +3,16 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getMyFamilies } from '@/lib/api'
+import { createFamily, createPerson, getFamilyActivity, getMyFamilies, joinFamilyByCode } from '@/lib/api'
+import { useToast } from '@/components/Toast'
 
 export default function DashboardPage() {
   const router = useRouter()
+  const toast = useToast()
   const [families, setFamilies] = useState<any[]>([])
+  const [activity, setActivity] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
@@ -17,7 +21,13 @@ export default function DashboardPage() {
       return
     }
     getMyFamilies()
-      .then((res) => setFamilies(res.data))
+      .then((res) => {
+        setFamilies(res.data)
+        const done = localStorage.getItem('hotoc:onboardingDone') === '1'
+        setShowOnboarding(!done)
+        const firstFamilyId = res.data?.[0]?.id
+        if (firstFamilyId) getFamilyActivity(firstFamilyId).then((activityRes) => setActivity(activityRes.data)).catch(() => setActivity([]))
+      })
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false))
   }, [router])
@@ -69,16 +79,32 @@ export default function DashboardPage() {
           </div>
 
           <aside>
-            <SectionHeader title="Việc cần làm" />
+            <SectionHeader title="Hoạt động gần đây" />
             <div style={sideCardStyle}>
-              <Action href="/family/seed-family-01/tree" title="Mở cây demo" desc="Kiểm tra dữ liệu 4 đời, 11 người." />
-              <Action href="/family/seed-family-01/add" title="Thêm thành viên" desc="Bổ sung người mới vào cây gia phả." />
-              <Action href="/family/seed-family-01/admin" title="Duyệt thay đổi" desc="Xem các đề xuất đang chờ xử lý." />
-              <Action href="/family/seed-family-01/reminders" title="Nhắc giỗ" desc="Theo dõi ngày giỗ sắp tới." />
+              {activity.length === 0 ? (
+                <div style={{ padding: '16px 0', color: 'var(--ink3)', fontSize: 13 }}>Chưa có hoạt động mới trong 30 ngày qua.</div>
+              ) : activity.map((item) => (
+                <Action
+                  key={item.id}
+                  href={item.entityType === 'Person' ? `/family/${families[0]?.id}/tree?person=${item.entityId}` : `/family/${families[0]?.id}/about`}
+                  title={activityTitle(item)}
+                  desc={relativeTime(item.createdAt)}
+                />
+              ))}
             </div>
           </aside>
         </div>
       </section>
+      {showOnboarding && (
+        <OnboardingWizard
+          onDone={() => {
+            localStorage.setItem('hotoc:onboardingDone', '1')
+            setShowOnboarding(false)
+          }}
+          onFamilyReady={(familyId) => router.push(`/family/${familyId}/tree`)}
+          toast={toast}
+        />
+      )}
     </main>
   )
 }
@@ -127,12 +153,119 @@ function Action({ href, title, desc }: { href: string; title: string; desc: stri
 
 function EmptyState() {
   return (
-    <div style={{ background: 'var(--card)', border: '1px dashed var(--border2)', borderRadius: 14, padding: 28, textAlign: 'center' }}>
-      <h2 style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 8 }}>Chưa có dòng họ nào</h2>
-      <p style={{ color: 'var(--ink3)', fontSize: 14, marginBottom: 18 }}>Tạo dòng họ đầu tiên để bắt đầu số hóa gia phả.</p>
-      <Link href="/family/create" className="btn btn-primary" style={{ textDecoration: 'none' }}>Tạo dòng họ đầu tiên</Link>
+    <div className="empty-state">
+      <div className="empty-state-icon">+</div>
+      <h2 style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 8 }}>Bắt đầu bằng cách tạo dòng họ</h2>
+      <p style={{ color: 'var(--ink3)', fontSize: 14, marginBottom: 18 }}>Tạo dòng họ đầu tiên hoặc tham gia bằng mã mời để xem cây gia phả.</p>
+      <Link href="/family/create" className="btn btn-primary" style={{ textDecoration: 'none' }}>Tạo dòng họ</Link>
     </div>
   )
+}
+
+function OnboardingWizard({ onDone, onFamilyReady, toast }: {
+  onDone: () => void
+  onFamilyReady: (familyId: string) => void
+  toast: (message: string, kind?: 'success' | 'warning' | 'error') => void
+}) {
+  const [step, setStep] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [familyName, setFamilyName] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [familyId, setFamilyId] = useState('')
+  const [fullName, setFullName] = useState('')
+
+  async function createOrJoin(kind: 'create' | 'join') {
+    setBusy(true)
+    try {
+      const res = kind === 'create'
+        ? await createFamily({ name: familyName || 'Dòng họ của tôi' })
+        : await joinFamilyByCode(inviteCode.trim())
+      const id = res.data.id ?? res.data.familyId
+      setFamilyId(id)
+      toast(kind === 'create' ? 'Đã tạo dòng họ' : 'Đã tham gia dòng họ')
+      setStep(2)
+    } catch {
+      toast('Có lỗi xảy ra, thử lại', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function addSelf() {
+    if (!familyId || !fullName.trim()) {
+      onDone()
+      if (familyId) onFamilyReady(familyId)
+      return
+    }
+    setBusy(true)
+    try {
+      await createPerson({ familyId, fullName: fullName.trim(), isRootAncestor: true, gender: 'UNKNOWN' })
+      toast(`Đã thêm ${fullName.trim()} vào cây`)
+      onDone()
+      onFamilyReady(familyId)
+    } catch {
+      toast('Có lỗi xảy ra, thử lại', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(28,26,23,.55)', display: 'grid', placeItems: 'center', padding: 16 }}>
+      <div style={{ width: 'min(560px, 100%)', background: 'var(--card)', borderRadius: 16, padding: 20, boxShadow: '0 20px 70px rgba(0,0,0,.25)' }}>
+        <div style={{ color: 'var(--ink3)', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Bước {step + 1}/3</div>
+        {step === 0 && (
+          <>
+            <h2 style={{ fontSize: 24, marginBottom: 8 }}>Chào mừng đến Họ Tộc</h2>
+            <p style={{ color: 'var(--ink3)', marginBottom: 18 }}>Ứng dụng giúp gia đình tạo cây gia phả, mời con cháu tham gia, lưu câu chuyện và nhắc ngày giỗ.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <button className="btn btn-outline" onClick={onDone}>Skip</button>
+              <button className="btn btn-primary" onClick={() => setStep(1)}>Tiếp tục</button>
+            </div>
+          </>
+        )}
+        {step === 1 && (
+          <>
+            <h2 style={{ fontSize: 24, marginBottom: 12 }}>Tạo dòng họ hoặc nhập mã mời</h2>
+            <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+              <input value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="Tên dòng họ, ví dụ: Họ Nguyễn - Hà Tĩnh" />
+              <button className="btn btn-primary" disabled={busy} onClick={() => createOrJoin('create')}>{busy ? 'Đang xử lý...' : 'Tạo dòng họ'}</button>
+              <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Hoặc nhập invite code" />
+              <button className="btn btn-outline" disabled={busy || !inviteCode.trim()} onClick={() => createOrJoin('join')}>Tham gia bằng code</button>
+            </div>
+            <button className="btn btn-outline" onClick={onDone}>Skip</button>
+          </>
+        )}
+        {step === 2 && (
+          <>
+            <h2 style={{ fontSize: 24, marginBottom: 12 }}>Thêm thành viên đầu tiên</h2>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Họ tên của bạn" style={{ marginBottom: 14 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <button className="btn btn-outline" onClick={addSelf}>Skip</button>
+              <button className="btn btn-primary" disabled={busy} onClick={addSelf}>{busy ? 'Đang xử lý...' : 'Hoàn thành'}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function activityTitle(item: any) {
+  const actor = item.performedBy?.displayName || item.performedBy?.phone || 'Một thành viên'
+  const name = item.newValue?.fullName || item.newValue?.name || 'dữ liệu'
+  if (item.entityType === 'FamilyMember') return `${actor} đã tham gia dòng họ`
+  if (item.action === 'CREATE') return `${actor} đã thêm ${name}`
+  return `${actor} đã cập nhật ${name}`
+}
+
+function relativeTime(input: string) {
+  const diff = Date.now() - new Date(input).getTime()
+  const hours = Math.floor(diff / 3600000)
+  if (hours < 1) return 'Vừa xong'
+  if (hours < 24) return `${hours} giờ trước`
+  if (hours < 48) return 'Hôm qua'
+  return new Date(input).toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' })
 }
 
 function LoadingScreen() {

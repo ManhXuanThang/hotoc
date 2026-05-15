@@ -52,6 +52,16 @@ export class ChangeRequestService {
           data: { familyId: req.familyId, personId: req.personId, type: 'DEATH_ANNIVERSARY', reminderDate },
         });
       }
+      await this.prisma.auditLog.create({
+        data: {
+          familyId: req.familyId,
+          entityType: 'Person',
+          entityId: req.personId,
+          action: 'CREATE',
+          newValue: { fullName: changes.fullName },
+          performedById: userId,
+        },
+      });
     }
 
     if (action === 'APPROVE' && req.changeType === 'UPDATE_PERSON') {
@@ -59,6 +69,16 @@ export class ChangeRequestService {
       await this.prisma.person.update({
         where: { id: req.personId },
         data: this.personDataFromChanges(changes),
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          familyId: req.familyId,
+          entityType: 'Person',
+          entityId: req.personId,
+          action: 'UPDATE',
+          newValue: changes,
+          performedById: userId,
+        },
       });
     }
 

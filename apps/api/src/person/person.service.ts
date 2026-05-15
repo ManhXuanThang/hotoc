@@ -32,6 +32,16 @@ export class PersonService {
     const person = await this.prisma.person.create({
       data: this.buildPersonData(userId, dto, { approvedById: userId, isVerified: true }),
     });
+    await this.prisma.auditLog.create({
+      data: {
+        familyId: dto.familyId,
+        entityType: 'Person',
+        entityId: person.id,
+        action: 'CREATE',
+        newValue: { fullName: person.fullName },
+        performedById: userId,
+      },
+    });
 
     await this.createRelationship(person.id, dto.relatedPersonId, dto.relationToRelated);
 
@@ -75,7 +85,7 @@ export class PersonService {
       });
     }
 
-    return this.prisma.person.update({
+    const updated = await this.prisma.person.update({
       where: { id: personId },
       data: {
         ...dto,
@@ -83,6 +93,18 @@ export class PersonService {
         deathDate: dto.deathDate ? new Date(dto.deathDate) : undefined,
       },
     });
+    await this.prisma.auditLog.create({
+      data: {
+        familyId: person.familyId,
+        entityType: 'Person',
+        entityId: personId,
+        action: 'UPDATE',
+        oldValue: person as any,
+        newValue: dto as any,
+        performedById: userId,
+      },
+    });
+    return updated;
   }
 
   async getFamilyTree(familyId: string, userId: string) {

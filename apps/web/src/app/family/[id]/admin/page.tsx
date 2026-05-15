@@ -5,9 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import Topbar from '@/components/Topbar'
 import Sidebar from '@/components/Sidebar'
 import { getChangeRequests, getFamily, getFamilyTree, reviewChangeRequest } from '@/lib/api'
+import { useToast } from '@/components/Toast'
 
 export default function AdminPage() {
   const router = useRouter()
+  const toast = useToast()
   const params = useParams<{ id: string }>()
   const familyId = params.id
   const [family, setFamily] = useState<any>(null)
@@ -52,8 +54,10 @@ export default function AdminPage() {
     try {
       await reviewChangeRequest(id, action)
       setRequests((current) => current.filter((item) => item.id !== id))
+      toast(action === 'APPROVE' ? 'Đã duyệt' : 'Đã từ chối', action === 'APPROVE' ? 'success' : 'error')
     } catch (e: any) {
       setError(e.response?.data?.message || 'Không thể xử lý yêu cầu')
+      toast('Có lỗi xảy ra, thử lại', 'error')
     } finally {
       setBusyId('')
     }
@@ -78,8 +82,9 @@ export default function AdminPage() {
             {loading ? (
               <div style={cardStyle}>Đang tải yêu cầu...</div>
             ) : requests.length === 0 ? (
-              <div style={cardStyle}>
-                <h2 style={{ fontSize: 18, marginBottom: 6 }}>Không có yêu cầu chờ duyệt</h2>
+              <div className="empty-state">
+                <div className="empty-state-icon">✓</div>
+                <h2 style={{ fontSize: 18, marginBottom: 6 }}>Không có yêu cầu nào đang chờ duyệt</h2>
                 <p style={{ color: 'var(--ink3)', fontSize: 14 }}>Các đề xuất thêm hoặc sửa thành viên sẽ xuất hiện tại đây.</p>
               </div>
             ) : (
