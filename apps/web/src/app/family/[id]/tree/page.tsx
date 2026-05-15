@@ -63,7 +63,7 @@ function PersonCard({ p, selected, onClick }: { p: Person; selected: boolean; on
   )
 }
 
-function ProfileContent({ p, persons, onSelect }: { p: Person; persons: Person[]; onSelect: (p: Person) => void }) {
+function ProfileContent({ familyId, p, persons, onSelect }: { familyId: string; p: Person; persons: Person[]; onSelect: (p: Person) => void }) {
   const coverColor = p.isCurrentUser ? 'var(--primary)' : p.gender === 'MALE' ? 'var(--male-text)' : 'var(--female-text)'
   const avColor = coverColor
   return (
@@ -107,6 +107,9 @@ function ProfileContent({ p, persons, onSelect }: { p: Person; persons: Person[]
         <button className="btn btn-outline" style={{ width: '100%', marginBottom: 14 }} onClick={() => downloadCard(p)}>
           Tạo thiệp
         </button>
+        <Link href={`/family/${familyId}/person/${p.id}`} className="btn btn-primary" style={{ width: '100%', marginBottom: 14, textDecoration: 'none', display: 'block', textAlign: 'center' }}>
+          Xem hồ sơ đầy đủ
+        </Link>
         {p.relationsAsSource.length > 0 && (
           <>
             <div className="rels-title">Quan hệ trong cây</div>
@@ -307,7 +310,7 @@ export default function TreePage() {
                 </div>
               </div>
               {selected ? (
-                <ProfileContent p={selected} persons={persons} onSelect={setSelected} />
+                <ProfileContent familyId={familyId} p={selected} persons={persons} onSelect={setSelected} />
               ) : (
                 <div className="panel-empty">
                   <i className="ti ti-user" style={{ fontSize: 32 }} aria-hidden="true" />
@@ -352,7 +355,7 @@ export default function TreePage() {
                 style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, background: 'rgba(0,0,0,.2)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 ✕
               </button>
-              <ProfileContent p={selected} persons={persons} onSelect={(p) => { setSelected(p) }} />
+              <ProfileContent familyId={familyId} p={selected} persons={persons} onSelect={(p) => { setSelected(p) }} />
             </div>
           </div>
         </>

@@ -52,11 +52,11 @@ export default function LoginPage() {
         <div style={{ fontSize: 56, marginBottom: 16, animation: 'scaleIn 0.6s ease' }}>🌳</div>
         <h1 style={{ color: '#fff', fontSize: 32, marginBottom: 8, fontWeight: 700, fontFamily: 'Lora, serif' }}>Họ Tộc</h1>
         <p style={{ color: 'rgba(255,255,255,.6)', fontSize: 15, fontWeight: 500 }}>Kết nối nguồn cội dòng tộc</p>
-        <div style={{ display: 'grid', gap: 6, marginTop: 16, color: 'rgba(255,255,255,.68)', fontSize: 13 }}>
-          <span>Tạo cây gia phả dễ hiểu cho cả nhà</span>
-          <span>Mời người thân tham gia bằng link riêng</span>
-          <span>Lưu câu chuyện và nhắc ngày giỗ</span>
-        </div>
+        <ul style={{ display: 'grid', gap: 6, marginTop: 16, color: 'rgba(255,255,255,.68)', fontSize: 13, textAlign: 'left', listStylePosition: 'inside' }}>
+          <li>Tạo cây gia phả dễ hiểu cho cả nhà</li>
+          <li>Mời người thân tham gia bằng link riêng</li>
+          <li>Lưu câu chuyện và nhắc ngày giỗ</li>
+        </ul>
       </div>
 
       <div style={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: 24, padding: 32, width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', position: 'relative', zIndex: 1, animation: 'slideInUp 0.6s cubic-bezier(0.2, 0, 0.38, 0.9)' }}>
